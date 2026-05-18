@@ -11,7 +11,6 @@ import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
@@ -184,22 +183,33 @@ public class FirestoreMetricsRepository implements MetricsRepository {
         dto.setTotals(parseTotals((Map<String, Object>) d.get("totals")));
         List<Map<String, Object>> hist = (List<Map<String, Object>>) d.get("history");
         List<WeeklyMetricsDto> weeks = new ArrayList<>();
-        for (Map<String, Object> w : hist) weeks.add(parseWeek(w));
+        if (hist != null) {
+            for (Map<String, Object> w : hist) weeks.add(parseWeek(w));
+        }
         dto.setHistory(weeks);
         return dto;
     }
 
     private WeeklyMetricsDto parseWeek(Map<String, Object> m) {
         WeeklyMetricsDto w = new WeeklyMetricsDto();
+        if (m == null) return w;
         w.setIsoYearWeek((String) m.get("isoYearWeek"));
-        w.setWeekStart(((Timestamp) m.get("weekStart")).toSqlTimestamp().toInstant());
-        w.setWeekEnd(((Timestamp) m.get("weekEnd")).toSqlTimestamp().toInstant());
-        w.setTotalKm(((Number) m.get("totalKm")).doubleValue());
-        w.setTotalRuns(((Number) m.get("totalRuns")).intValue());
-        w.setTotalTimeMs(((Number) m.get("totalTimeMs")).longValue());
-        w.setAvgPaceSecPerKm(((Number) m.get("avgPaceSecPerKm")).longValue());
-        w.setLongestKm(((Number) m.get("longestKm")).doubleValue());
-        w.setStreakDays(((Number) m.get("streakDays")).intValue());
+        Timestamp ws = (Timestamp) m.get("weekStart");
+        if (ws != null) w.setWeekStart(ws.toSqlTimestamp().toInstant());
+        Timestamp we = (Timestamp) m.get("weekEnd");
+        if (we != null) w.setWeekEnd(we.toSqlTimestamp().toInstant());
+        Number totalKm = (Number) m.get("totalKm");
+        w.setTotalKm(totalKm == null ? 0.0 : totalKm.doubleValue());
+        Number totalRuns = (Number) m.get("totalRuns");
+        w.setTotalRuns(totalRuns == null ? 0 : totalRuns.intValue());
+        Number totalTimeMs = (Number) m.get("totalTimeMs");
+        w.setTotalTimeMs(totalTimeMs == null ? 0L : totalTimeMs.longValue());
+        Number avgPace = (Number) m.get("avgPaceSecPerKm");
+        w.setAvgPaceSecPerKm(avgPace == null ? 0L : avgPace.longValue());
+        Number longestKm = (Number) m.get("longestKm");
+        w.setLongestKm(longestKm == null ? 0.0 : longestKm.doubleValue());
+        Number streakDays = (Number) m.get("streakDays");
+        w.setStreakDays(streakDays == null ? 0 : streakDays.intValue());
         return w;
     }
 
