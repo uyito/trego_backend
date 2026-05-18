@@ -43,22 +43,15 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/actuator/**",
                     "/health",
-                    "/auth/register",
-                    "/auth/login", 
-                    "/auth/forgot-password",
-                    "/auth/reset-password",
-                    "/auth/verify-email",
+                    "/auth/**",
                     "/public/**"
                 ).permitAll()
                 
                 // Admin endpoints
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 
-                // Premium endpoints
-                .requestMatchers(
-                    "/ai/**",
-                    "/premium/**"
-                ).hasAnyRole("PREMIUM", "PREMIUM_PLUS", "ADMIN")
+                // AI Coach endpoints require premium access
+                .requestMatchers("/ai-coach/**").hasAnyRole("PREMIUM", "PREMIUM_PLUS", "ADMIN")
                 
                 // Everything else requires authentication
                 .anyRequest().authenticated()

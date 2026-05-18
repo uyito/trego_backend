@@ -140,11 +140,8 @@ public class FirebaseAuthenticationFilter extends OncePerRequestFilter {
         
         // Check if this is a public endpoint that doesn't require authentication
         return path.startsWith("/actuator/") || 
-               path.equals("/auth/register") || 
-               path.equals("/auth/login") ||
-               path.equals("/auth/forgot-password") ||
-               path.equals("/auth/reset-password") ||
-               path.equals("/auth/verify-email") ||
+               path.equals("/health") ||
+               path.startsWith("/auth/") ||
                path.startsWith("/public/");
     }
 }
