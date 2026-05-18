@@ -2,7 +2,9 @@ package com.trego.controller;
 
 import com.trego.config.SecurityConfig;
 import com.trego.dto.*;
+import com.trego.model.User;
 import com.trego.security.FirebaseAuthenticationFilter;
+import com.trego.security.FirebaseUserPrincipal;
 import com.trego.security.JwtAuthenticationEntryPoint;
 import com.trego.service.MetricsService;
 import jakarta.servlet.FilterChain;
@@ -16,16 +18,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.time.Instant;
 import java.util.Collections;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -46,6 +50,19 @@ class MetricsControllerTest {
     // SecurityConfig depends on these beans; mock them so @WebMvcTest can load
     @MockBean FirebaseAuthenticationFilter firebaseAuthenticationFilter;
     @MockBean JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+
+    private static RequestPostProcessor authenticatedAs(String firebaseUid) {
+        User user = new User();
+        user.setId(firebaseUid);
+        user.setEmail(firebaseUid + "@test.example");
+        user.setActive(true);
+        user.setEmailVerified(true);
+        user.setRoles(Collections.singletonList("USER"));
+        FirebaseUserPrincipal principal = new FirebaseUserPrincipal(user, firebaseUid);
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+            principal, null, principal.getAuthorities());
+        return SecurityMockMvcRequestPostProcessors.authentication(auth);
+    }
 
     @BeforeEach
     void setUp() throws Exception {
@@ -83,7 +100,6 @@ class MetricsControllerTest {
     }
 
     @Test
-    @WithMockUser("test-user")
     void getReturnsSnapshot() throws Exception {
         MetricsSnapshotDto dto = new MetricsSnapshotDto();
         dto.setComputedAt(Instant.parse("2026-04-27T18:34:12Z"));
@@ -96,9 +112,9 @@ class MetricsControllerTest {
         dto.setTotals(totals);
         dto.setHistory(Collections.emptyList());
 
-        when(service.getSnapshot(anyString())).thenReturn(dto);
+        when(service.getSnapshot(eq("test-user"))).thenReturn(dto);
 
-        mvc.perform(get("/metrics/me"))
+        mvc.perform(get("/metrics/me").with(authenticatedAs("test-user")))
            .andExpect(status().isOk())
            .andExpect(jsonPath("$.thisWeek.isoYearWeek").value("2026-W17"));
     }
@@ -110,12 +126,11 @@ class MetricsControllerTest {
     }
 
     @Test
-    @WithMockUser("test-user")
     void postRecomputeReturnsResult() throws Exception {
-        when(service.recompute(anyString())).thenReturn(
+        when(service.recompute(eq("test-user"))).thenReturn(
             new RecomputeResultDto(Instant.parse("2026-04-27T18:34:12Z"), 42, 87L));
 
-        mvc.perform(post("/metrics/me/recompute").with(csrf()))
+        mvc.perform(post("/metrics/me/recompute").with(csrf()).with(authenticatedAs("test-user")))
            .andExpect(status().isOk())
            .andExpect(jsonPath("$.runCount").value(42))
            .andExpect(jsonPath("$.durationMs").value(87));
