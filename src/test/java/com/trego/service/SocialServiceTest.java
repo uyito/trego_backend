@@ -71,6 +71,37 @@ class SocialServiceTest {
     }
 
     @Test
+    void friendsPostVisibleToFriendButNotStranger() {
+        // Service where ALICE and BOB are friends, CAROL is not.
+        FriendshipLookup lookup = (a, b) -> {
+            var pair = java.util.Set.of(a, b);
+            return pair.equals(java.util.Set.of(ALICE, BOB));
+        };
+        SocialService svc = new SocialService(repo, lookup);
+
+        svc.createPost(BOB, "Bob B", null, "bob friends-only", "general", List.of(), "friends");
+
+        // Friend sees it.
+        List<Map<String, Object>> aliceFeed = svc.getFeed(ALICE, 20, 0);
+        assertEquals(1, aliceFeed.size());
+        assertEquals("bob friends-only", aliceFeed.get(0).get("content"));
+        assertEquals(false, aliceFeed.get(0).get("isOwn"));
+
+        // Stranger does not.
+        assertTrue(svc.getFeed("carol-uid", 20, 0).isEmpty());
+
+        // Author always sees their own.
+        assertEquals(1, svc.getFeed(BOB, 20, 0).size());
+    }
+
+    @Test
+    void friendsPostHiddenWhenFriendshipLookupDisabled() {
+        // Default one-arg constructor disables friends-visibility.
+        createPost(BOB, "bob friends-only", "friends");
+        assertTrue(service.getFeed(ALICE, 20, 0).isEmpty());
+    }
+
+    @Test
     void feedNewestFirstAndRespectsPagination() {
         createPost(ALICE, "first", "public");
         createPost(ALICE, "second", "public");
