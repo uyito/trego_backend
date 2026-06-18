@@ -29,9 +29,24 @@ import java.util.NoSuchElementException;
 public class SocialService {
 
     private final SocialRepository repo;
+    private final FriendshipLookup friends;
 
-    public SocialService(SocialRepository repo) {
+    /**
+     * Spring constructor — friends-visibility enabled via the injected
+     * {@link FriendshipLookup} (FriendService).
+     */
+    @org.springframework.beans.factory.annotation.Autowired
+    public SocialService(SocialRepository repo, FriendshipLookup friends) {
         this.repo = repo;
+        this.friends = friends;
+    }
+
+    /**
+     * Convenience constructor with friends-visibility disabled (friends-scoped
+     * posts are author-only). Used by tests that don't exercise the friend graph.
+     */
+    public SocialService(SocialRepository repo) {
+        this(repo, (a, b) -> false);
     }
 
     public List<Map<String, Object>> getFeed(String viewerUid, int limit, int offset) {
@@ -140,7 +155,11 @@ public class SocialService {
 
     private boolean isVisibleTo(SocialPost p, String viewerUid) {
         if (viewerUid != null && viewerUid.equals(p.getAuthorId())) return true;
-        return "public".equals(p.getVisibility());
+        if ("public".equals(p.getVisibility())) return true;
+        if ("friends".equals(p.getVisibility())) {
+            return friends.areFriends(viewerUid, p.getAuthorId());
+        }
+        return false; // "private" — author-only (handled above)
     }
 
     private SocialPost requirePost(String postId) {
