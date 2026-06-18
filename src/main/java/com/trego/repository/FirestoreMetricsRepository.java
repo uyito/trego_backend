@@ -75,6 +75,39 @@ public class FirestoreMetricsRepository implements MetricsRepository {
     }
 
     @Override
+    public Optional<WeeklyGoalDto> readGoal(String uid) {
+        try {
+            DocumentSnapshot d = firestore
+                    .collection("users").document(uid)
+                    .collection("metrics").document("goal")
+                    .get().get();
+            if (!d.exists()) return Optional.empty();
+            Double targetKm = d.get("targetKm") != null ? ((Number) d.get("targetKm")).doubleValue() : null;
+            Integer targetRuns = d.get("targetRuns") != null ? ((Number) d.get("targetRuns")).intValue() : null;
+            Instant updatedAt = d.get("updatedAt") != null
+                    ? ((Timestamp) d.get("updatedAt")).toSqlTimestamp().toInstant() : null;
+            return Optional.of(new WeeklyGoalDto(targetKm, targetRuns, updatedAt));
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException("readGoal failed for " + uid, e);
+        }
+    }
+
+    @Override
+    public void writeGoal(String uid, WeeklyGoalDto goal) {
+        try {
+            Map<String, Object> m = new HashMap<>();
+            m.put("targetKm", goal.getTargetKm());
+            m.put("targetRuns", goal.getTargetRuns());
+            m.put("updatedAt", instantToTs(goal.getUpdatedAt()));
+            firestore.collection("users").document(uid)
+                    .collection("metrics").document("goal")
+                    .set(m).get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException("writeGoal failed for " + uid, e);
+        }
+    }
+
+    @Override
     public void writeSnapshot(String uid, StoredSnapshot snapshot, Map<LocalDate, DailyAggregate> daily) {
         try {
             CollectionReference metrics = firestore.collection("users").document(uid).collection("metrics");
