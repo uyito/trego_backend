@@ -2,6 +2,7 @@ package com.trego.controller;
 
 import com.trego.dto.MetricsSnapshotDto;
 import com.trego.dto.RecomputeResultDto;
+import com.trego.dto.WeeklyGoalDto;
 import com.trego.security.FirebaseUserPrincipal;
 import com.trego.service.MetricsService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,5 +36,26 @@ public class MetricsController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         return ResponseEntity.ok(service.recompute(principal.getFirebaseUid()));
+    }
+
+    /** Read the user's weekly goal (all-null DTO if none set). */
+    @GetMapping("/me/goal")
+    public ResponseEntity<WeeklyGoalDto> getGoal(
+            @AuthenticationPrincipal FirebaseUserPrincipal principal) {
+        if (principal == null || principal.getUser() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(service.getGoal(principal.getFirebaseUid()));
+    }
+
+    /** Set the user's weekly goal (targetKm and/or targetRuns; either may be null). */
+    @PutMapping("/me/goal")
+    public ResponseEntity<WeeklyGoalDto> setGoal(
+            @RequestBody WeeklyGoalDto goal,
+            @AuthenticationPrincipal FirebaseUserPrincipal principal) {
+        if (principal == null || principal.getUser() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(service.setGoal(principal.getFirebaseUid(), goal));
     }
 }

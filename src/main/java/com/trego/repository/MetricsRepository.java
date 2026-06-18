@@ -1,6 +1,7 @@
 package com.trego.repository;
 
 import com.trego.dto.MetricsSnapshotDto;
+import com.trego.dto.WeeklyGoalDto;
 import com.trego.model.RunRecord;
 
 import java.time.LocalDate;
@@ -25,6 +26,12 @@ public interface MetricsRepository {
 
     /** Write snapshot doc + per-day aggregate docs. */
     void writeSnapshot(String uid, StoredSnapshot snapshot, Map<LocalDate, DailyAggregate> dailyByDate);
+
+    /** Read the user's weekly goal, or empty if none set. */
+    Optional<WeeklyGoalDto> readGoal(String uid);
+
+    /** Persist the user's weekly goal. */
+    void writeGoal(String uid, WeeklyGoalDto goal);
 
     /** Container for the persisted snapshot — schema version + run count + the public DTO. */
     final class StoredSnapshot {

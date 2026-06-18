@@ -135,4 +135,35 @@ class MetricsControllerTest {
            .andExpect(jsonPath("$.runCount").value(42))
            .andExpect(jsonPath("$.durationMs").value(87));
     }
+
+    @Test
+    void getGoalRequiresAuth() throws Exception {
+        mvc.perform(get("/metrics/me/goal"))
+           .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void getGoalReturnsGoal() throws Exception {
+        when(service.getGoal(eq("test-user")))
+            .thenReturn(new com.trego.dto.WeeklyGoalDto(25.0, 4, Instant.parse("2026-04-21T12:00:00Z")));
+
+        mvc.perform(get("/metrics/me/goal").with(authenticatedAs("test-user")))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.targetKm").value(25.0))
+           .andExpect(jsonPath("$.targetRuns").value(4));
+    }
+
+    @Test
+    void putGoalReturnsStoredGoal() throws Exception {
+        when(service.setGoal(eq("test-user"), org.mockito.ArgumentMatchers.any()))
+            .thenReturn(new com.trego.dto.WeeklyGoalDto(30.0, 5, Instant.parse("2026-04-21T12:00:00Z")));
+
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .put("/metrics/me/goal").with(csrf()).with(authenticatedAs("test-user"))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"targetKm\":30.0,\"targetRuns\":5}"))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.targetKm").value(30.0))
+           .andExpect(jsonPath("$.targetRuns").value(5));
+    }
 }
