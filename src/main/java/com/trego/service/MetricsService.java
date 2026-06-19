@@ -33,6 +33,23 @@ public class MetricsService {
     }
 
     /**
+     * Read the user's weekly goal, or an empty (all-null) goal if none is set.
+     */
+    public WeeklyGoalDto getGoal(String uid) {
+        return repo.readGoal(uid).orElseGet(() -> new WeeklyGoalDto(null, null, null));
+    }
+
+    /**
+     * Persist the user's weekly goal, stamping updatedAt. Returns the stored goal.
+     */
+    public WeeklyGoalDto setGoal(String uid, WeeklyGoalDto goal) {
+        WeeklyGoalDto toStore = new WeeklyGoalDto(
+                goal.getTargetKm(), goal.getTargetRuns(), Instant.now(clock));
+        repo.writeGoal(uid, toStore);
+        return toStore;
+    }
+
+    /**
      * Read the current snapshot, recomputing if missing or stale.
      */
     public MetricsSnapshotDto getSnapshot(String uid) {

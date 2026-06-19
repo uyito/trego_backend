@@ -238,4 +238,31 @@ class MetricsServiceTest {
                      second.getPrs().getFastest5k().getRunId());
         assertEquals(first.getHistory().size(), second.getHistory().size());
     }
+
+    @Test
+    void getGoalReturnsEmptyWhenUnset() {
+        var goal = service.getGoal(UID);
+        assertNull(goal.getTargetKm());
+        assertNull(goal.getTargetRuns());
+    }
+
+    @Test
+    void setGoalPersistsAndStampsUpdatedAt() {
+        var saved = service.setGoal(UID, new com.trego.dto.WeeklyGoalDto(25.0, 4, null));
+        assertEquals(25.0, saved.getTargetKm());
+        assertEquals(4, saved.getTargetRuns());
+        // Clock is fixed at 2026-04-21T12:00:00Z in setUp.
+        assertEquals(Instant.parse("2026-04-21T12:00:00Z"), saved.getUpdatedAt());
+
+        var read = service.getGoal(UID);
+        assertEquals(25.0, read.getTargetKm());
+        assertEquals(4, read.getTargetRuns());
+    }
+
+    @Test
+    void setGoalAllowsPartialTargets() {
+        var saved = service.setGoal(UID, new com.trego.dto.WeeklyGoalDto(30.0, null, null));
+        assertEquals(30.0, saved.getTargetKm());
+        assertNull(saved.getTargetRuns());
+    }
 }
