@@ -413,3 +413,40 @@ For support:
 - [ ] Third-party fitness device integration
 - [ ] Multi-language support
 - [ ] Advanced social features
+
+
+
+Next Steps by Priority:
+
+Phase 1: Core MVP (2-3 weeks)
+□ Working authentication (Google sign-in)
+□ Basic user profile creation/editing
+□ Simple workout tracking (start/stop timer, basic metrics)
+□ Basic dashboard showing recent activity
+
+Phase 2: Key Features (1-2 months)
+□ Full workout planning with exercise library
+□ Run tracking with GPS (you have LiveRunTracker code)
+□ Recipe browsing and meal planning
+□ Achievement system
+
+Phase 3: Advanced Features (2+ months)
+□ Social features (friends, challenges)
+□ AI recommendations
+□ Analytics and insights
+□ Backend API integration
+
+Technical Tasks:
+
+Fix Existing Issues:
+- Complete the AuthService integration in app.dart
+- Connect Firebase Auth properly
+- Test the navigation flow with real authentication
+
+Backend Setup:
+- Your Spring Boot backend in /backend/ needs to be running
+- Set up Firebase credentials
+- Configure API endpoints
+
+Would you like me to help you implement one specific feature first? I'd recommend starting with authentication since everything else depends on
+it, or basic workout tracking to get something functional quickly.
