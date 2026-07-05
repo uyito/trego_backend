@@ -16,13 +16,19 @@ public class InMemoryFriendGraphRepository implements FriendGraphRepository {
 
     final List<FriendRequest> requests = new ArrayList<>();
     final List<Friendship> friendships = new ArrayList<>();
-    final Map<String, String> emailToUid = new LinkedHashMap<>();   // lowercased email → uid
+    final Map<String, String> emailToUid = new LinkedHashMap<>();      // lowercased email → uid
+    final Map<String, String> usernameToUid = new LinkedHashMap<>();   // lowercased username → uid
     final Map<String, UserView> usersByUid = new LinkedHashMap<>();
 
     /** Test helper: register a user so it can be resolved + rendered. */
     void addUser(String uid, String email, String name) {
         if (email != null) emailToUid.put(email.toLowerCase(), uid);
         usersByUid.put(uid, new UserView(uid, name, null));
+    }
+
+    /** Test helper: register a username → uid mapping. */
+    void addUsername(String username, String uid) {
+        usernameToUid.put(username.toLowerCase(), uid);
     }
 
     @Override
@@ -98,6 +104,15 @@ public class InMemoryFriendGraphRepository implements FriendGraphRepository {
     public Optional<String> resolveUidByEmail(String email) {
         if (email == null) return Optional.empty();
         return Optional.ofNullable(emailToUid.get(email.toLowerCase()));
+    }
+
+    @Override
+    public Optional<String> resolveUid(String identifier) {
+        if (identifier == null) return Optional.empty();
+        String key = identifier.trim().toLowerCase();
+        String byUsername = usernameToUid.get(key);
+        if (byUsername != null) return Optional.of(byUsername);
+        return resolveUidByEmail(identifier.trim());
     }
 
     @Override

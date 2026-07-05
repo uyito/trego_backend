@@ -157,7 +157,38 @@ public class AuthController {
                 .body(ApiResponse.error("Profile update failed. Please try again.", "PROFILE_001"));
         }
     }
-    
+
+    /** Claim or rename to a unique username. */
+    @PutMapping("/username")
+    public ResponseEntity<ApiResponse<AuthResponse>> setUsername(
+            @AuthenticationPrincipal FirebaseUserPrincipal principal,
+            @RequestBody Map<String, String> request) {
+        try {
+            if (principal == null || principal.getUser() == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("Authentication required", "AUTH_003"));
+            }
+            String userId = principal.getUser().getId();
+            AuthResponse userResponse = authService.setUsername(userId, request.get("username"));
+            return ResponseEntity.ok(ApiResponse.success("Username updated", userResponse));
+
+        } catch (IllegalArgumentException e) {
+            // Invalid or reserved format.
+            return ResponseEntity.badRequest()
+                .body(ApiResponse.error(e.getMessage(), "USERNAME_INVALID"));
+
+        } catch (IllegalStateException e) {
+            // Taken by another user.
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(e.getMessage(), "USERNAME_TAKEN"));
+
+        } catch (Exception e) {
+            logger.error("Username update failed: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error("Username update failed. Please try again.", "USERNAME_001"));
+        }
+    }
+
     @PostMapping("/verify-email")
     public ResponseEntity<ApiResponse<Map<String, Object>>> verifyEmail(@RequestBody Map<String, String> request) {
         try {

@@ -39,6 +39,21 @@ class FriendServiceTest {
     }
 
     @Test
+    void resolvesByUsernameFirst() {
+        repo.addUsername("bob_runs", BOB);
+        Map<String, Object> result = service.sendRequest(ALICE, "Bob_Runs", null);
+        assertEquals("pending", result.get("status"));
+        assertEquals(1, service.getRequests(BOB).size());
+    }
+
+    @Test
+    void fallsBackToEmailWhenNoUsernameMatch() {
+        Map<String, Object> result = service.sendRequest(ALICE, "bob@test.example", null);
+        assertEquals("pending", result.get("status"));
+        assertEquals(1, service.getRequests(BOB).size());
+    }
+
+    @Test
     void emailIsCaseInsensitive() {
         Map<String, Object> result = service.sendRequest(ALICE, "BOB@TEST.EXAMPLE", null);
         assertEquals("pending", result.get("status"));
