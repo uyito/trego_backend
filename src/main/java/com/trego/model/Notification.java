@@ -15,6 +15,7 @@ public class Notification extends BaseEntity {
     public static final String TYPE_POST_COMMENT = "post_comment";
     public static final String TYPE_FRIEND_REQUEST = "friend_request";
     public static final String TYPE_FRIEND_ACCEPT = "friend_accept";
+    public static final String TYPE_MENTION = "mention";
 
     private String recipientUid;
     private String type;

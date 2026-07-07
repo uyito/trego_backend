@@ -105,6 +105,8 @@ public class NotificationFeedService implements NotificationEmitter {
                 return who + " sent you a friend request";
             case Notification.TYPE_FRIEND_ACCEPT:
                 return who + " accepted your friend request";
+            case Notification.TYPE_MENTION:
+                return who + " mentioned you";
             default:
                 return who + " sent you a notification";
         }

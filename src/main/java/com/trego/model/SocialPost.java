@@ -22,6 +22,8 @@ public class SocialPost extends BaseEntity {
     private List<String> attachments = new ArrayList<>();
     private List<String> likedBy = new ArrayList<>();
     private int commentsCount = 0;
+    /** Resolved @mentions: each entry is {uid, username}. */
+    private List<Map<String, Object>> mentions = new ArrayList<>();
 
     public SocialPost() {
         super();
@@ -40,6 +42,7 @@ public class SocialPost extends BaseEntity {
         map.put("attachments", attachments);
         map.put("likedBy", likedBy);
         map.put("commentsCount", commentsCount);
+        map.put("mentions", mentions);
         return map;
     }
 
@@ -61,6 +64,8 @@ public class SocialPost extends BaseEntity {
         if (liked instanceof List) p.likedBy = new ArrayList<>((List<String>) liked);
         Object cc = map.get("commentsCount");
         if (cc instanceof Number) p.commentsCount = ((Number) cc).intValue();
+        Object men = map.get("mentions");
+        if (men instanceof List) p.mentions = new ArrayList<>((List<Map<String, Object>>) men);
         return p;
     }
 
@@ -94,4 +99,9 @@ public class SocialPost extends BaseEntity {
 
     public int getCommentsCount() { return commentsCount; }
     public void setCommentsCount(int commentsCount) { this.commentsCount = commentsCount; }
+
+    public List<Map<String, Object>> getMentions() { return mentions; }
+    public void setMentions(List<Map<String, Object>> mentions) {
+        this.mentions = mentions != null ? mentions : new ArrayList<>();
+    }
 }

@@ -5,6 +5,9 @@ import com.trego.model.Notification;
 import com.trego.model.PostReport;
 import com.trego.model.SocialPost;
 import com.trego.repository.SocialRepository;
+import com.trego.util.MentionParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -13,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 
 /**
  * Social feed business logic. Builds per-viewer view-models (flat maps with a
@@ -29,37 +33,54 @@ import java.util.NoSuchElementException;
 @Service
 public class SocialService {
 
+    private static final Logger logger = LoggerFactory.getLogger(SocialService.class);
+
     /** No-op notifier for tests/constructors that don't exercise notifications. */
     private static final NotificationEmitter NO_OP_NOTIFIER =
             (recipientUid, type, actorUid, targetType, targetId) -> {};
 
+    /** No-op resolver for tests/constructors that don't exercise mentions. */
+    private static final MentionResolver NO_OP_RESOLVER = username -> Optional.empty();
+
+    /** Max mention notifications emitted per post/comment (anti-abuse). */
+    static final int MAX_MENTIONS = 10;
+
     private final SocialRepository repo;
     private final FriendshipLookup friends;
     private final NotificationEmitter notifier;
+    private final MentionResolver mentionResolver;
 
     /**
-     * Spring constructor — friends-visibility via {@link FriendshipLookup} and
-     * notification emission via {@link NotificationEmitter}.
+     * Spring constructor — friends-visibility via {@link FriendshipLookup},
+     * notification emission via {@link NotificationEmitter}, and @mention
+     * resolution via {@link MentionResolver}.
      */
     @org.springframework.beans.factory.annotation.Autowired
-    public SocialService(SocialRepository repo, FriendshipLookup friends, NotificationEmitter notifier) {
+    public SocialService(SocialRepository repo, FriendshipLookup friends,
+                         NotificationEmitter notifier, MentionResolver mentionResolver) {
         this.repo = repo;
         this.friends = friends;
         this.notifier = notifier;
+        this.mentionResolver = mentionResolver;
     }
 
-    /** Friends-visibility on, notifications no-op. */
+    /** Notifications on, mentions no-op. */
+    public SocialService(SocialRepository repo, FriendshipLookup friends, NotificationEmitter notifier) {
+        this(repo, friends, notifier, NO_OP_RESOLVER);
+    }
+
+    /** Friends-visibility on, notifications + mentions no-op. */
     public SocialService(SocialRepository repo, FriendshipLookup friends) {
-        this(repo, friends, NO_OP_NOTIFIER);
+        this(repo, friends, NO_OP_NOTIFIER, NO_OP_RESOLVER);
     }
 
     /**
      * Convenience constructor with friends-visibility disabled (friends-scoped
-     * posts are author-only) and notifications no-op. Used by tests that don't
-     * exercise the friend graph.
+     * posts are author-only) and notifications + mentions no-op. Used by tests
+     * that don't exercise the friend graph.
      */
     public SocialService(SocialRepository repo) {
-        this(repo, (a, b) -> false, NO_OP_NOTIFIER);
+        this(repo, (a, b) -> false, NO_OP_NOTIFIER, NO_OP_RESOLVER);
     }
 
     public List<Map<String, Object>> getFeed(String viewerUid, int limit, int offset) {
@@ -90,7 +111,10 @@ public class SocialService {
         p.setType(type != null ? type : "general");
         p.setVisibility(visibility != null ? visibility : "friends");
         p.setAttachments(attachments);
+        List<Map<String, Object>> mentions = resolveMentions(content, authorUid);
+        p.setMentions(mentions);
         SocialPost saved = repo.savePost(p);
+        emitMentions(mentions, authorUid, saved.getId());
         return toPostView(saved, authorUid);
     }
 
@@ -126,10 +150,14 @@ public class SocialService {
         c.setAuthorName(authorName);
         c.setAuthorPhotoUrl(authorPhotoUrl);
         c.setContent(content);
+        List<Map<String, Object>> mentions = resolveMentions(content, authorUid);
+        c.setMentions(mentions);
         Comment saved = repo.saveComment(c);
         p.setCommentsCount(p.getCommentsCount() + 1);
         repo.savePost(p);
         notifier.emit(p.getAuthorId(), Notification.TYPE_POST_COMMENT, authorUid, "post", postId);
+        // Mentions in a comment point at the post (→ its comments on tap).
+        emitMentions(mentions, authorUid, postId);
         Map<String, Object> r = new LinkedHashMap<>();
         r.put("comment", toCommentView(saved));
         r.put("commentsCount", p.getCommentsCount());
@@ -171,6 +199,37 @@ public class SocialService {
 
     // --- helpers ---
 
+    /**
+     * Parse @handles from [content], resolve to existing users, drop self +
+     * unresolvable, dedupe, and cap at {@link #MAX_MENTIONS}. Returns a list of
+     * {uid, username} maps (denormalized for the client).
+     */
+    private List<Map<String, Object>> resolveMentions(String content, String authorUid) {
+        List<Map<String, Object>> resolved = new ArrayList<>();
+        java.util.Set<String> seenUids = new java.util.HashSet<>();
+        for (String handle : MentionParser.extractHandles(content)) {
+            Optional<String> uidOpt = mentionResolver.resolveUid(handle);
+            if (uidOpt.isEmpty()) continue;
+            String uid = uidOpt.get();
+            if (uid.equals(authorUid) || !seenUids.add(uid)) continue;
+            if (resolved.size() >= MAX_MENTIONS) {
+                logger.info("Mention cap ({}) reached; dropping extra mentions", MAX_MENTIONS);
+                break;
+            }
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("uid", uid);
+            entry.put("username", handle);
+            resolved.add(entry);
+        }
+        return resolved;
+    }
+
+    private void emitMentions(List<Map<String, Object>> mentions, String actorUid, String postId) {
+        for (Map<String, Object> mention : mentions) {
+            notifier.emit((String) mention.get("uid"), Notification.TYPE_MENTION, actorUid, "post", postId);
+        }
+    }
+
     private boolean isVisibleTo(SocialPost p, String viewerUid) {
         if (viewerUid != null && viewerUid.equals(p.getAuthorId())) return true;
         if ("public".equals(p.getVisibility())) return true;
@@ -208,6 +267,7 @@ public class SocialService {
         m.put("commentsCount", p.getCommentsCount());
         m.put("userLiked", viewerUid != null && p.getLikedBy().contains(viewerUid));
         m.put("isOwn", viewerUid != null && viewerUid.equals(p.getAuthorId()));
+        m.put("mentions", p.getMentions());
         m.put("createdAt", isoOrNull(p.getCreatedAt()));
         return m;
     }
@@ -223,6 +283,7 @@ public class SocialService {
         m.put("postId", c.getPostId());
         m.put("content", c.getContent());
         m.put("author", author);
+        m.put("mentions", c.getMentions());
         m.put("createdAt", isoOrNull(c.getCreatedAt()));
         return m;
     }

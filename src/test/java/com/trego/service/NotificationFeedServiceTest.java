@@ -56,11 +56,13 @@ class NotificationFeedServiceTest {
         service.emit(ALICE, Notification.TYPE_POST_COMMENT, BOB, "post", "p1");
         service.emit(ALICE, Notification.TYPE_FRIEND_REQUEST, BOB, "friend_request", "r1");
         service.emit(ALICE, Notification.TYPE_FRIEND_ACCEPT, BOB, "friendship", null);
+        service.emit(ALICE, Notification.TYPE_MENTION, BOB, "post", "p1");
 
         List<String> messages = repo.items.stream().map(Notification::getMessage).toList();
         assertTrue(messages.contains("Bob B commented on your post"));
         assertTrue(messages.contains("Bob B sent you a friend request"));
         assertTrue(messages.contains("Bob B accepted your friend request"));
+        assertTrue(messages.contains("Bob B mentioned you"));
     }
 
     @Test

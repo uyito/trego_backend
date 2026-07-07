@@ -250,4 +250,112 @@ class SocialServiceTest {
         assertEquals(ALICE, emitter.emitted.get(0).recipientUid);
         assertEquals("post_comment", emitter.emitted.get(0).type);
     }
+
+    // --- @mentions ---
+
+    /** Resolver that maps a fixed set of lowercased handles to uids. */
+    static final class FakeResolver implements MentionResolver {
+        final Map<String, String> byHandle;
+        FakeResolver(Map<String, String> byHandle) { this.byHandle = byHandle; }
+        @Override public java.util.Optional<String> resolveUid(String username) {
+            return java.util.Optional.ofNullable(byHandle.get(username));
+        }
+    }
+
+    private SocialService serviceWith(RecordingNotificationEmitter emitter, FakeResolver resolver) {
+        return new SocialService(repo, (a, b) -> false, emitter, resolver);
+    }
+
+    @Test
+    void createPostResolvesMentionsAndNotifies() {
+        final RecordingNotificationEmitter emitter = new RecordingNotificationEmitter();
+        final SocialService svc = serviceWith(emitter, new FakeResolver(Map.of("bob", BOB)));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> post = svc.createPost(ALICE, "Alice", null,
+                "great run @Bob!", "general", List.of(), "public");
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> mentions = (List<Map<String, Object>>) post.get("mentions");
+        assertEquals(1, mentions.size());
+        assertEquals(BOB, mentions.get(0).get("uid"));
+        assertEquals("bob", mentions.get(0).get("username"));
+
+        assertEquals(1, emitter.emitted.size());
+        assertEquals(BOB, emitter.emitted.get(0).recipientUid);
+        assertEquals("mention", emitter.emitted.get(0).type);
+        assertEquals(ALICE, emitter.emitted.get(0).actorUid);
+    }
+
+    @Test
+    void mentionOfSelfIsSkipped() {
+        final RecordingNotificationEmitter emitter = new RecordingNotificationEmitter();
+        final SocialService svc = serviceWith(emitter, new FakeResolver(Map.of("alice", ALICE)));
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> mentions = (List<Map<String, Object>>) svc.createPost(
+                ALICE, "Alice", null, "note to @alice", "general", List.of(), "public").get("mentions");
+
+        assertTrue(mentions.isEmpty());
+        assertTrue(emitter.emitted.isEmpty());
+    }
+
+    @Test
+    void unresolvableMentionIsDropped() {
+        final RecordingNotificationEmitter emitter = new RecordingNotificationEmitter();
+        final SocialService svc = serviceWith(emitter, new FakeResolver(Map.of()));
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> mentions = (List<Map<String, Object>>) svc.createPost(
+                ALICE, "Alice", null, "who is @ghost", "general", List.of(), "public").get("mentions");
+
+        assertTrue(mentions.isEmpty());
+        assertTrue(emitter.emitted.isEmpty());
+    }
+
+    @Test
+    void duplicateHandleNotifiesOnce() {
+        final RecordingNotificationEmitter emitter = new RecordingNotificationEmitter();
+        final SocialService svc = serviceWith(emitter, new FakeResolver(Map.of("bob", BOB)));
+
+        svc.createPost(ALICE, "Alice", null, "@bob @Bob @bob", "general", List.of(), "public");
+
+        assertEquals(1, emitter.emitted.size());
+    }
+
+    @Test
+    void commentMentionTargetsThePost() {
+        final RecordingNotificationEmitter emitter = new RecordingNotificationEmitter();
+        final SocialService svc = serviceWith(emitter, new FakeResolver(Map.of("carol", "carol-uid")));
+        final String postId = (String) svc.createPost(ALICE, "Alice", null, "hi",
+                "general", List.of(), "public").get("id");
+
+        svc.addComment(BOB, "Bob", null, postId, "cc @carol");
+
+        // post_comment (to ALICE) + mention (to carol)
+        assertEquals(2, emitter.emitted.size());
+        var mention = emitter.emitted.stream().filter(e -> e.type.equals("mention")).findFirst().orElseThrow();
+        assertEquals("carol-uid", mention.recipientUid);
+        assertEquals("post", mention.targetType);
+        assertEquals(postId, mention.targetId);
+    }
+
+    @Test
+    void mentionsAreCappedAtTen() {
+        final RecordingNotificationEmitter emitter = new RecordingNotificationEmitter();
+        final java.util.Map<String, String> handles = new java.util.HashMap<>();
+        final StringBuilder content = new StringBuilder();
+        for (int i = 0; i < 15; i++) {
+            handles.put("user_" + i, "uid_" + i);
+            content.append("@user_").append(i).append(' ');
+        }
+        final SocialService svc = serviceWith(emitter, new FakeResolver(handles));
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> mentions = (List<Map<String, Object>>) svc.createPost(
+                ALICE, "Alice", null, content.toString(), "general", List.of(), "public").get("mentions");
+
+        assertEquals(SocialService.MAX_MENTIONS, mentions.size());
+        assertEquals(SocialService.MAX_MENTIONS, emitter.emitted.size());
+    }
 }
