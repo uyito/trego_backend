@@ -34,13 +34,17 @@ public class FirestoreFriendGraphRepository implements FriendGraphRepository {
     private final FriendshipRepository friendships;
     private final UserRepository users;
 
+    private final UsernameDirectory usernames;
+
     @Autowired
     public FirestoreFriendGraphRepository(FriendRequestRepository requests,
                                           FriendshipRepository friendships,
-                                          UserRepository users) {
+                                          UserRepository users,
+                                          UsernameDirectory usernames) {
         this.requests = requests;
         this.friendships = friendships;
         this.users = users;
+        this.usernames = usernames;
     }
 
     @Override
@@ -140,6 +144,17 @@ public class FirestoreFriendGraphRepository implements FriendGraphRepository {
         } catch (ExecutionException | InterruptedException e) {
             throw rethrow("resolveUidByEmail", e);
         }
+    }
+
+    @Override
+    public Optional<String> resolveUid(String identifier) {
+        if (identifier == null || identifier.trim().isEmpty()) return Optional.empty();
+        String trimmed = identifier.trim();
+        // Username first (lowercased, exact via the uniqueness index).
+        Optional<String> byUsername = usernames.resolveUid(trimmed.toLowerCase());
+        if (byUsername.isPresent()) return byUsername;
+        // Fall back to email.
+        return resolveUidByEmail(trimmed);
     }
 
     @Override

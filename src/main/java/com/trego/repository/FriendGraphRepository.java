@@ -38,6 +38,12 @@ public interface FriendGraphRepository {
     /** Resolve a user UID by exact email (case-insensitive). */
     Optional<String> resolveUidByEmail(String email);
 
+    /**
+     * Resolve a user UID from a free-form identifier: tries username first
+     * (lowercased, exact), then falls back to email (case-insensitive).
+     */
+    Optional<String> resolveUid(String identifier);
+
     /** Lightweight profile view for rendering friend/request cards. */
     Optional<UserView> getUserView(String uid);
 

@@ -36,8 +36,8 @@ public class FriendService implements FriendshipLookup {
      * request was auto-accepted, otherwise "pending".
      */
     public Map<String, Object> sendRequest(String fromUid, String identifier, String message) {
-        String toUid = repo.resolveUidByEmail(identifier)
-                .orElseThrow(() -> new NoSuchElementException("No user found for that email"));
+        String toUid = repo.resolveUid(identifier)
+                .orElseThrow(() -> new NoSuchElementException("No user found for that username or email"));
 
         if (toUid.equals(fromUid)) {
             throw new IllegalArgumentException("You cannot send a friend request to yourself");

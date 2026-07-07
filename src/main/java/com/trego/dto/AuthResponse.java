@@ -21,7 +21,10 @@ public class AuthResponse {
     
     @JsonProperty("lastName")
     private String lastName;
-    
+
+    @JsonProperty("username")
+    private String username;
+
     @JsonProperty("emailVerified")
     private Boolean emailVerified;
     
@@ -53,6 +56,7 @@ public class AuthResponse {
         this.email = user.getEmail();
         this.firstName = user.getFirstName();
         this.lastName = user.getLastName();
+        this.username = user.getUsername();
         this.emailVerified = user.isEmailVerified();
         this.profileComplete = user.isProfileComplete();
         this.subscriptionStatus = user.getSubscriptionStatus();
@@ -103,7 +107,15 @@ public class AuthResponse {
     public void setLastName(String lastName) {
         this.lastName = lastName;
     }
-    
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
     public Boolean getEmailVerified() {
         return emailVerified;
     }

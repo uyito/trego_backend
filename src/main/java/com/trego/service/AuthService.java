@@ -35,6 +35,9 @@ public class AuthService {
     
     @Autowired
     private UserProfileRepository userProfileRepository;
+
+    @Autowired
+    private UsernameService usernameService;
     
     @Autowired
     private JwtUtil jwtUtil;
@@ -264,11 +267,31 @@ public class AuthService {
         
         AuthResponse response = AuthResponse.fromUser(user);
         response.setProfile(profile);
-        
+
         logger.info("User profile updated successfully: {}", userId);
         return response;
     }
-    
+
+    /**
+     * Claim (or rename to) a unique username for the user. Delegates uniqueness
+     * to {@link UsernameService}; persists the normalized value on the user doc.
+     *
+     * @throws IllegalArgumentException invalid/reserved format
+     * @throws IllegalStateException    already taken by another user
+     */
+    public AuthResponse setUsername(String userId, String desired) throws ExecutionException, InterruptedException {
+        Optional<User> userOpt = findUserById(userId);
+        if (userOpt.isEmpty()) {
+            throw new IllegalArgumentException("User not found");
+        }
+        User user = userOpt.get();
+        String normalized = usernameService.claim(userId, user.getUsername(), desired);
+        user.setUsername(normalized);
+        userRepository.update(user);
+        logger.info("Username set for user {}: {}", userId, normalized);
+        return AuthResponse.fromUser(user);
+    }
+
     public void verifyEmail(String userId, String verificationCode) throws ExecutionException, InterruptedException {
         logger.info("Verifying email for user: {}", userId);
         

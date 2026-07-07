@@ -30,7 +30,10 @@ public class User extends BaseEntity {
     
     @JsonProperty("phoneNumber")
     private String phoneNumber;
-    
+
+    @JsonProperty("username")
+    private String username;
+
     @JsonProperty("emailVerified")
     private boolean emailVerified = false;
     
@@ -72,6 +75,7 @@ public class User extends BaseEntity {
         map.put("firstName", this.firstName);
         map.put("lastName", this.lastName);
         map.put("phoneNumber", this.phoneNumber);
+        map.put("username", this.username);
         map.put("emailVerified", this.emailVerified);
         map.put("lastLogin", this.lastLogin);
         map.put("isActive", this.isActive);
@@ -90,6 +94,7 @@ public class User extends BaseEntity {
         user.setFirstName((String) map.get("firstName"));
         user.setLastName((String) map.get("lastName"));
         user.setPhoneNumber((String) map.get("phoneNumber"));
+        user.setUsername((String) map.get("username"));
         user.setEmailVerified((Boolean) map.getOrDefault("emailVerified", false));
         user.setActive((Boolean) map.getOrDefault("isActive", true));
         user.setProfileComplete((Boolean) map.getOrDefault("profileComplete", false));
@@ -158,11 +163,19 @@ public class User extends BaseEntity {
     public String getPhoneNumber() {
         return phoneNumber;
     }
-    
+
     public void setPhoneNumber(String phoneNumber) {
         this.phoneNumber = phoneNumber;
     }
-    
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
     public boolean isEmailVerified() {
         return emailVerified;
     }
