@@ -2,6 +2,7 @@ package com.trego.service;
 
 import com.trego.model.FriendRequest;
 import com.trego.model.Friendship;
+import com.trego.model.Notification;
 import com.trego.repository.FriendGraphRepository;
 import com.trego.repository.FriendGraphRepository.UserView;
 import org.springframework.stereotype.Service;
@@ -24,10 +25,22 @@ import java.util.NoSuchElementException;
 @Service
 public class FriendService implements FriendshipLookup {
 
-    private final FriendGraphRepository repo;
+    /** No-op notifier for tests that don't exercise notifications. */
+    private static final NotificationEmitter NO_OP_NOTIFIER =
+            (recipientUid, type, actorUid, targetType, targetId) -> {};
 
-    public FriendService(FriendGraphRepository repo) {
+    private final FriendGraphRepository repo;
+    private final NotificationEmitter notifier;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public FriendService(FriendGraphRepository repo, NotificationEmitter notifier) {
         this.repo = repo;
+        this.notifier = notifier;
+    }
+
+    /** Notifications no-op. Used by tests that don't assert emission. */
+    public FriendService(FriendGraphRepository repo) {
+        this(repo, NO_OP_NOTIFIER);
     }
 
     /**
@@ -56,6 +69,8 @@ public class FriendService implements FriendshipLookup {
             r.setStatus(FriendRequest.STATUS_ACCEPTED);
             repo.saveRequest(r);
             repo.saveFriendship(Friendship.of(fromUid, toUid));
+            // The original sender (r.fromUid == toUid) sees their request accepted.
+            notifier.emit(r.getFromUid(), Notification.TYPE_FRIEND_ACCEPT, fromUid, "friendship", null);
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("status", "friends");
             return result;
@@ -67,6 +82,7 @@ public class FriendService implements FriendshipLookup {
         req.setMessage(message);
         req.setStatus(FriendRequest.STATUS_PENDING);
         FriendRequest saved = repo.saveRequest(req);
+        notifier.emit(toUid, Notification.TYPE_FRIEND_REQUEST, fromUid, "friend_request", saved.getId());
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("status", "pending");
@@ -90,6 +106,8 @@ public class FriendService implements FriendshipLookup {
             if (repo.findFriendship(Friendship.pairKeyFor(r.getFromUid(), r.getToUid())).isEmpty()) {
                 repo.saveFriendship(Friendship.of(r.getFromUid(), r.getToUid()));
             }
+            // Notify the original sender that the recipient accepted.
+            notifier.emit(r.getFromUid(), Notification.TYPE_FRIEND_ACCEPT, viewerUid, "friendship", requestId);
         } else {
             r.setStatus(FriendRequest.STATUS_DECLINED);
             repo.saveRequest(r);

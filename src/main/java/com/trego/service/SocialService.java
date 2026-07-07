@@ -1,6 +1,7 @@
 package com.trego.service;
 
 import com.trego.model.Comment;
+import com.trego.model.Notification;
 import com.trego.model.PostReport;
 import com.trego.model.SocialPost;
 import com.trego.repository.SocialRepository;
@@ -28,25 +29,37 @@ import java.util.NoSuchElementException;
 @Service
 public class SocialService {
 
+    /** No-op notifier for tests/constructors that don't exercise notifications. */
+    private static final NotificationEmitter NO_OP_NOTIFIER =
+            (recipientUid, type, actorUid, targetType, targetId) -> {};
+
     private final SocialRepository repo;
     private final FriendshipLookup friends;
+    private final NotificationEmitter notifier;
 
     /**
-     * Spring constructor — friends-visibility enabled via the injected
-     * {@link FriendshipLookup} (FriendService).
+     * Spring constructor — friends-visibility via {@link FriendshipLookup} and
+     * notification emission via {@link NotificationEmitter}.
      */
     @org.springframework.beans.factory.annotation.Autowired
-    public SocialService(SocialRepository repo, FriendshipLookup friends) {
+    public SocialService(SocialRepository repo, FriendshipLookup friends, NotificationEmitter notifier) {
         this.repo = repo;
         this.friends = friends;
+        this.notifier = notifier;
+    }
+
+    /** Friends-visibility on, notifications no-op. */
+    public SocialService(SocialRepository repo, FriendshipLookup friends) {
+        this(repo, friends, NO_OP_NOTIFIER);
     }
 
     /**
      * Convenience constructor with friends-visibility disabled (friends-scoped
-     * posts are author-only). Used by tests that don't exercise the friend graph.
+     * posts are author-only) and notifications no-op. Used by tests that don't
+     * exercise the friend graph.
      */
     public SocialService(SocialRepository repo) {
-        this(repo, (a, b) -> false);
+        this(repo, (a, b) -> false, NO_OP_NOTIFIER);
     }
 
     public List<Map<String, Object>> getFeed(String viewerUid, int limit, int offset) {
@@ -93,6 +106,10 @@ public class SocialService {
             nowLiked = true;
         }
         repo.savePost(p);
+        // Notify the author only when the like turns on (not on unlike).
+        if (nowLiked) {
+            notifier.emit(p.getAuthorId(), Notification.TYPE_POST_LIKE, viewerUid, "post", postId);
+        }
         Map<String, Object> r = new LinkedHashMap<>();
         r.put("userLiked", nowLiked);
         r.put("likesCount", p.getLikedBy().size());
@@ -112,6 +129,7 @@ public class SocialService {
         Comment saved = repo.saveComment(c);
         p.setCommentsCount(p.getCommentsCount() + 1);
         repo.savePost(p);
+        notifier.emit(p.getAuthorId(), Notification.TYPE_POST_COMMENT, authorUid, "post", postId);
         Map<String, Object> r = new LinkedHashMap<>();
         r.put("comment", toCommentView(saved));
         r.put("commentsCount", p.getCommentsCount());

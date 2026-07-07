@@ -206,4 +206,48 @@ class SocialServiceTest {
         assertThrows(NoSuchElementException.class, () -> service.updatePost(ALICE, "nope", "x"));
         assertThrows(NoSuchElementException.class, () -> service.deletePost(ALICE, "nope"));
     }
+
+    // --- notification emission ---
+
+    @Test
+    void likeEmitsPostLikeToAuthor() {
+        final RecordingNotificationEmitter emitter = new RecordingNotificationEmitter();
+        final SocialService svc = new SocialService(repo, (a, b) -> false, emitter);
+        final String id = (String) svc.createPost(ALICE, "Alice", null, "hi",
+                "general", java.util.List.of(), "public").get("id");
+
+        svc.toggleLike(BOB, id);
+
+        assertEquals(1, emitter.emitted.size());
+        assertEquals(ALICE, emitter.emitted.get(0).recipientUid);
+        assertEquals("post_like", emitter.emitted.get(0).type);
+        assertEquals(BOB, emitter.emitted.get(0).actorUid);
+    }
+
+    @Test
+    void unlikeDoesNotEmit() {
+        final RecordingNotificationEmitter emitter = new RecordingNotificationEmitter();
+        final SocialService svc = new SocialService(repo, (a, b) -> false, emitter);
+        final String id = (String) svc.createPost(ALICE, "Alice", null, "hi",
+                "general", java.util.List.of(), "public").get("id");
+
+        svc.toggleLike(BOB, id);   // like → emits
+        svc.toggleLike(BOB, id);   // unlike → no emit
+
+        assertEquals(1, emitter.emitted.size());
+    }
+
+    @Test
+    void commentEmitsPostCommentToAuthor() {
+        final RecordingNotificationEmitter emitter = new RecordingNotificationEmitter();
+        final SocialService svc = new SocialService(repo, (a, b) -> false, emitter);
+        final String id = (String) svc.createPost(ALICE, "Alice", null, "hi",
+                "general", java.util.List.of(), "public").get("id");
+
+        svc.addComment(BOB, "Bob", null, id, "nice");
+
+        assertEquals(1, emitter.emitted.size());
+        assertEquals(ALICE, emitter.emitted.get(0).recipientUid);
+        assertEquals("post_comment", emitter.emitted.get(0).type);
+    }
 }

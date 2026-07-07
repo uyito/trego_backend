@@ -164,4 +164,52 @@ class FriendServiceTest {
         assertThrows(IllegalStateException.class,
                 () -> service.sendRequest(ALICE, "bob@test.example", null));
     }
+
+    // --- notification emission ---
+
+    @Test
+    void sendRequestEmitsFriendRequestToRecipient() {
+        RecordingNotificationEmitter emitter = new RecordingNotificationEmitter();
+        FriendService svc = new FriendService(repo, emitter);
+
+        svc.sendRequest(ALICE, "bob@test.example", "hi");
+
+        assertEquals(1, emitter.emitted.size());
+        assertEquals(BOB, emitter.emitted.get(0).recipientUid);
+        assertEquals("friend_request", emitter.emitted.get(0).type);
+        assertEquals(ALICE, emitter.emitted.get(0).actorUid);
+    }
+
+    @Test
+    void acceptEmitsFriendAcceptToOriginalSender() {
+        RecordingNotificationEmitter emitter = new RecordingNotificationEmitter();
+        FriendService svc = new FriendService(repo, emitter);
+        Map<String, Object> sent = svc.sendRequest(ALICE, "bob@test.example", null);
+        @SuppressWarnings("unchecked")
+        String reqId = (String) ((Map<String, Object>) sent.get("request")).get("id");
+
+        svc.respondToRequest(BOB, reqId, true);
+
+        // request emit + accept emit
+        assertEquals(2, emitter.emitted.size());
+        RecordingNotificationEmitter.Emitted accept = emitter.emitted.get(1);
+        assertEquals("friend_accept", accept.type);
+        assertEquals(ALICE, accept.recipientUid);   // original sender
+        assertEquals(BOB, accept.actorUid);         // accepter
+    }
+
+    @Test
+    void reversePendingAutoAcceptEmitsFriendAcceptToOriginalSender() {
+        RecordingNotificationEmitter emitter = new RecordingNotificationEmitter();
+        FriendService svc = new FriendService(repo, emitter);
+        svc.sendRequest(ALICE, "bob@test.example", null);   // alice → bob (friend_request)
+        emitter.emitted.clear();
+
+        svc.sendRequest(BOB, "alice@test.example", null);   // bob → alice ⇒ auto-accept
+
+        assertEquals(1, emitter.emitted.size());
+        assertEquals("friend_accept", emitter.emitted.get(0).type);
+        assertEquals(ALICE, emitter.emitted.get(0).recipientUid);   // original sender
+        assertEquals(BOB, emitter.emitted.get(0).actorUid);
+    }
 }
