@@ -1,5 +1,7 @@
 package com.trego.model;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /** A comment on a {@link SocialPost}. Stored in the "social_comments" collection. */
@@ -10,6 +12,8 @@ public class Comment extends BaseEntity {
     private String authorName;
     private String authorPhotoUrl;
     private String content;
+    /** Resolved @mentions: each entry is {uid, username}. */
+    private List<Map<String, Object>> mentions = new ArrayList<>();
 
     public Comment() {
         super();
@@ -23,9 +27,11 @@ public class Comment extends BaseEntity {
         map.put("authorName", authorName);
         map.put("authorPhotoUrl", authorPhotoUrl);
         map.put("content", content);
+        map.put("mentions", mentions);
         return map;
     }
 
+    @SuppressWarnings("unchecked")
     public static Comment fromFirestoreMap(Map<String, Object> map) {
         Comment c = new Comment();
         c.setId((String) map.get("id"));
@@ -36,6 +42,8 @@ public class Comment extends BaseEntity {
         c.authorName = (String) map.get("authorName");
         c.authorPhotoUrl = (String) map.get("authorPhotoUrl");
         c.content = (String) map.get("content");
+        Object men = map.get("mentions");
+        if (men instanceof List) c.mentions = new ArrayList<>((List<Map<String, Object>>) men);
         return c;
     }
 
@@ -53,4 +61,9 @@ public class Comment extends BaseEntity {
 
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
+
+    public List<Map<String, Object>> getMentions() { return mentions; }
+    public void setMentions(List<Map<String, Object>> mentions) {
+        this.mentions = mentions != null ? mentions : new ArrayList<>();
+    }
 }
