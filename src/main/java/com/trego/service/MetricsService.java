@@ -22,6 +22,7 @@ public class MetricsService {
     private final Clock clock;
 
     /** Spring constructor — uses system clock. */
+    @org.springframework.beans.factory.annotation.Autowired
     public MetricsService(MetricsRepository repo) {
         this(repo, Clock.systemUTC());
     }
