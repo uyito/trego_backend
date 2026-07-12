@@ -28,6 +28,39 @@ class NotificationFeedServiceTest {
     }
 
     @Test
+    void emitAlsoPushesWithMessageAndDeepLinkData() {
+        // A recording push sender captures what would be pushed.
+        final java.util.List<Object[]> pushes = new java.util.ArrayList<>();
+        ActorDirectory actors = uid -> Optional.of(new ActorDirectory.ActorInfo(uid, "Bob B", null));
+        NotificationFeedService svc = new NotificationFeedService(repo, actors,
+                (recipientUid, title, body, data) -> pushes.add(new Object[]{recipientUid, title, body, data}));
+
+        svc.emit(ALICE, Notification.TYPE_MENTION, BOB, "post", "p7");
+
+        assertEquals(1, pushes.size());
+        assertEquals(ALICE, pushes.get(0)[0]);
+        assertEquals("Bob B", pushes.get(0)[1]);
+        assertEquals("Bob B mentioned you", pushes.get(0)[2]);
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, String> data = (java.util.Map<String, String>) pushes.get(0)[3];
+        assertEquals("mention", data.get("type"));
+        assertEquals("post", data.get("targetType"));
+        assertEquals("p7", data.get("targetId"));
+    }
+
+    @Test
+    void selfActionDoesNotPush() {
+        final java.util.List<Object[]> pushes = new java.util.ArrayList<>();
+        ActorDirectory actors = uid -> Optional.of(new ActorDirectory.ActorInfo(uid, "A", null));
+        NotificationFeedService svc = new NotificationFeedService(repo, actors,
+                (r, t, b, d) -> pushes.add(new Object[]{r}));
+
+        svc.emit(ALICE, Notification.TYPE_POST_LIKE, ALICE, "post", "p1");
+
+        assertTrue(pushes.isEmpty());
+    }
+
+    @Test
     void emitCreatesNotificationWithDenormalizedActorAndMessage() {
         service.emit(ALICE, Notification.TYPE_POST_LIKE, BOB, "post", "p1");
 

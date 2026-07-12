@@ -22,12 +22,23 @@ public class NotificationFeedService implements NotificationEmitter {
 
     public static final int DEFAULT_LIMIT = 50;
 
+    /** No-op push sender for tests/constructors that don't exercise push. */
+    private static final PushSender NO_OP_PUSH = (recipientUid, title, body, data) -> {};
+
     private final NotificationRepository repo;
     private final ActorDirectory actors;
+    private final PushSender pushSender;
 
-    public NotificationFeedService(NotificationRepository repo, ActorDirectory actors) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public NotificationFeedService(NotificationRepository repo, ActorDirectory actors, PushSender pushSender) {
         this.repo = repo;
         this.actors = actors;
+        this.pushSender = pushSender;
+    }
+
+    /** Convenience constructor with push disabled — used by tests. */
+    public NotificationFeedService(NotificationRepository repo, ActorDirectory actors) {
+        this(repo, actors, NO_OP_PUSH);
     }
 
     @Override
@@ -46,9 +57,21 @@ public class NotificationFeedService implements NotificationEmitter {
         n.setActorPhotoUrl(actor.photoUrl);
         n.setTargetType(targetType);
         n.setTargetId(targetId);
-        n.setMessage(buildMessage(type, actor.name));
+        String message = buildMessage(type, actor.name);
+        n.setMessage(message);
         n.setRead(false);
         repo.save(n);
+
+        // Fan out a push carrying the same message + deep-link data.
+        Map<String, String> data = new LinkedHashMap<>();
+        data.put("type", nullToEmpty(type));
+        data.put("targetType", nullToEmpty(targetType));
+        data.put("targetId", nullToEmpty(targetId));
+        pushSender.sendToUser(recipientUid, actor.name != null ? actor.name : "Trego", message, data);
+    }
+
+    private static String nullToEmpty(String s) {
+        return s != null ? s : "";
     }
 
     public Map<String, Object> list(String uid, int limit) {
