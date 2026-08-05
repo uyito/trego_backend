@@ -1,0 +1,41 @@
+# Render Blueprint for the Trego backend.
+# Deploy: Render Dashboard -> New -> Blueprint -> connect this repo.
+#
+# One manual step Blueprints cannot express: the Firebase service-account file.
+# FirebaseConfig loads it via FileInputStream(credentialsPath) and boot fails
+# without it. After the service is created, add it under:
+#   Service -> Environment -> Secret Files
+#     Filename: firebase-credentials.json   (mounts at /etc/secrets/firebase-credentials.json)
+#     Contents: the trego-fb4f3 service-account JSON
+# FIREBASE_CREDENTIALS_PATH below already points at that mount path.
+#
+# Secrets marked `sync: false` are NOT stored in the repo — Render prompts for
+# them (or you set them in the dashboard) on first deploy.
+services:
+  - type: web
+    name: trego-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    branch: main
+    # 'starter' is 512 MB. Spring Boot + Firebase Admin SDK is memory-hungry;
+    # if you see OOM / exit 137 in the logs, bump this to 'standard' (2 GB).
+    plan: starter
+    region: oregon
+    healthCheckPath: /api/actuator/health   # context-path is /api
+    envVars:
+      - key: FIREBASE_PROJECT_ID
+        value: trego-fb4f3
+      - key: FIREBASE_STORAGE_BUCKET
+        value: trego-fb4f3.appspot.com
+      - key: FIREBASE_CREDENTIALS_PATH
+        value: /etc/secrets/firebase-credentials.json
+      # Scale the heap to the container instead of a fixed 1 GB floor.
+      - key: JAVA_OPTS
+        value: -XX:+UseContainerSupport -XX:MaxRAMPercentage=70.0
+      # --- secrets: set in the dashboard, never committed ---
+      - key: JWT_SECRET          # 256-bit+; do NOT ship the app.yml default
+        sync: false
+      - key: OPENAI_API_KEY      # optional; only if AI features are used
+        sync: false
+      - key: STRIPE_SECRET_KEY   # optional; only if payments are used
+        sync: false
