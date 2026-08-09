@@ -28,6 +28,12 @@ public class WorkoutSession extends BaseEntity {
     private String summary;
     private WeatherData weatherConditions;
     private boolean isCompleted;
+    private String activityType;
+    private String logKind;
+    private Double distance;
+    private Double elevationGain;
+    private Double avgPace;
+    private String stroke;
     
     public WorkoutSession() {
         super();
@@ -86,7 +92,14 @@ public class WorkoutSession extends BaseEntity {
         if (weatherConditions != null) {
             map.put("weatherConditions", weatherConditions.toFirestoreMap());
         }
-        
+
+        map.put("activityType", activityType);
+        map.put("logKind", logKind);
+        map.put("distance", distance);
+        map.put("elevationGain", elevationGain);
+        map.put("avgPace", avgPace);
+        map.put("stroke", stroke);
+
         return map;
     }
     
@@ -152,7 +165,14 @@ public class WorkoutSession extends BaseEntity {
         if (data.get("weatherConditions") instanceof Map) {
             session.setWeatherConditions(WeatherData.fromFirestoreMap((Map<String, Object>) data.get("weatherConditions")));
         }
-        
+
+        session.setActivityType((String) data.get("activityType"));
+        session.setLogKind((String) data.get("logKind"));
+        if (data.get("distance") != null) session.setDistance(((Number) data.get("distance")).doubleValue());
+        if (data.get("elevationGain") != null) session.setElevationGain(((Number) data.get("elevationGain")).doubleValue());
+        if (data.get("avgPace") != null) session.setAvgPace(((Number) data.get("avgPace")).doubleValue());
+        session.setStroke((String) data.get("stroke"));
+
         return session;
     }
     
@@ -240,4 +260,22 @@ public class WorkoutSession extends BaseEntity {
     
     public boolean isCompleted() { return isCompleted; }
     public void setCompleted(boolean completed) { isCompleted = completed; }
+
+    public String getActivityType() { return activityType; }
+    public void setActivityType(String activityType) { this.activityType = activityType; }
+
+    public String getLogKind() { return logKind; }
+    public void setLogKind(String logKind) { this.logKind = logKind; }
+
+    public Double getDistance() { return distance; }
+    public void setDistance(Double distance) { this.distance = distance; }
+
+    public Double getElevationGain() { return elevationGain; }
+    public void setElevationGain(Double elevationGain) { this.elevationGain = elevationGain; }
+
+    public Double getAvgPace() { return avgPace; }
+    public void setAvgPace(Double avgPace) { this.avgPace = avgPace; }
+
+    public String getStroke() { return stroke; }
+    public void setStroke(String stroke) { this.stroke = stroke; }
 }
