@@ -116,14 +116,14 @@ public class ActivitySessionService {
                 Map<String, Object> pr = cardio.computeIfAbsent(s.getActivityType(), k -> {
                     Map<String, Object> m = new LinkedHashMap<>();
                     m.put("activityType", s.getActivityType());
-                    m.put("bestDistance", 0.0);
-                    m.put("bestElevation", 0.0);
+                    m.put("bestDistance", null);
+                    m.put("bestElevation", null);
                     m.put("bestPace", null);
                     return m;
                 });
-                if (s.getDistance() != null && s.getDistance() > (double) pr.get("bestDistance"))
+                if (s.getDistance() != null && (pr.get("bestDistance") == null || s.getDistance() > (double) pr.get("bestDistance")))
                     pr.put("bestDistance", s.getDistance());
-                if (s.getElevationGain() != null && s.getElevationGain() > (double) pr.get("bestElevation"))
+                if (s.getElevationGain() != null && (pr.get("bestElevation") == null || s.getElevationGain() > (double) pr.get("bestElevation")))
                     pr.put("bestElevation", s.getElevationGain());
                 if (s.getAvgPace() != null && (pr.get("bestPace") == null || s.getAvgPace() < (double) pr.get("bestPace")))
                     pr.put("bestPace", s.getAvgPace());

@@ -47,7 +47,7 @@ class ActivitySessionPrsTest {
         Map<String, Object> pr = findByExercise(service.computePRs("u"), "bench-press");
         assertEquals(80.0, pr.get("heaviestWeight"));
         // Epley best of: 80*(1+5/30)=93.33 vs 70*(1+10/30)=93.33 -> ~93.33
-        assertEquals(93.33, (double) pr.get("estimatedOneRepMax"), 0.1);
+        assertEquals(93.33, (double) pr.get("estimatedOneRepMax"), 0.001);
     }
 
     private static Map<String,Object> findByActivity(List<Map<String,Object>> prs, String at) {
