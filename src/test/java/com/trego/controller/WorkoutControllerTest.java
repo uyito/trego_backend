@@ -116,4 +116,24 @@ class WorkoutControllerTest {
            .andExpect(status().isOk())
            .andExpect(jsonPath("$.prs[0].activityType").value("running"));
     }
+
+    @Test
+    void getDetailReturnsSession() throws Exception {
+        WorkoutSession s = new WorkoutSession("u", "cardio");
+        s.setId("s1");
+        s.setActivityType("hiking");
+        when(service.getSession("u", "s1")).thenReturn(s);
+        mvc.perform(get("/workouts/sessions/s1").with(authenticatedAs("u")))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.success").value(true))
+           .andExpect(jsonPath("$.session.id").value("s1"));
+    }
+
+    @Test
+    void getDetailReturns404WhenMissing() throws Exception {
+        when(service.getSession("u", "missing")).thenReturn(null);
+        mvc.perform(get("/workouts/sessions/missing").with(authenticatedAs("u")))
+           .andExpect(status().isNotFound())
+           .andExpect(jsonPath("$.success").value(false));
+    }
 }
