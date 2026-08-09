@@ -87,6 +87,55 @@ public class ActivitySessionService {
         return out;
     }
 
+    public List<Map<String, Object>> computePRs(String uid) throws Exception {
+        List<WorkoutSession> sessions = repo.findByUserId(uid);
+        Map<String, Map<String, Object>> cardio = new LinkedHashMap<>();
+        Map<String, Map<String, Object>> strength = new LinkedHashMap<>();
+
+        for (WorkoutSession s : sessions) {
+            if ("strength".equals(s.getLogKind()) && s.getExercises() != null) {
+                for (ExerciseLog log : s.getExercises()) {
+                    if (log.getSets() == null) continue;
+                    for (ExerciseSet set : log.getSets()) {
+                        if (set.getWeight() == null || set.getReps() == null) continue;
+                        Map<String, Object> pr = strength.computeIfAbsent(log.getExerciseId(), k -> {
+                            Map<String, Object> m = new LinkedHashMap<>();
+                            m.put("exerciseId", log.getExerciseId());
+                            m.put("name", log.getName());
+                            m.put("heaviestWeight", 0.0);
+                            m.put("estimatedOneRepMax", 0.0);
+                            return m;
+                        });
+                        double w = set.getWeight();
+                        double epley = round2(w * (1 + set.getReps() / 30.0));
+                        if (w > (double) pr.get("heaviestWeight")) pr.put("heaviestWeight", w);
+                        if (epley > (double) pr.get("estimatedOneRepMax")) pr.put("estimatedOneRepMax", epley);
+                    }
+                }
+            } else if ("distanceCardio".equals(s.getLogKind()) && s.getActivityType() != null) {
+                Map<String, Object> pr = cardio.computeIfAbsent(s.getActivityType(), k -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("activityType", s.getActivityType());
+                    m.put("bestDistance", 0.0);
+                    m.put("bestElevation", 0.0);
+                    m.put("bestPace", null);
+                    return m;
+                });
+                if (s.getDistance() != null && s.getDistance() > (double) pr.get("bestDistance"))
+                    pr.put("bestDistance", s.getDistance());
+                if (s.getElevationGain() != null && s.getElevationGain() > (double) pr.get("bestElevation"))
+                    pr.put("bestElevation", s.getElevationGain());
+                if (s.getAvgPace() != null && (pr.get("bestPace") == null || s.getAvgPace() < (double) pr.get("bestPace")))
+                    pr.put("bestPace", s.getAvgPace());
+            }
+        }
+        List<Map<String, Object>> out = new ArrayList<>(cardio.values());
+        out.addAll(strength.values());
+        return out;
+    }
+
+    private static double round2(double v) { return Math.round(v * 100.0) / 100.0; }
+
     private static String categoryFor(String logKind) {
         return logKind != null ? logKind : "duration";
     }
